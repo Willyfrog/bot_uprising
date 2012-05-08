@@ -1,11 +1,11 @@
 Your Game Title
 ===============
 
-Entry in PyWeek #12  <http://www.pyweek.org/12/>
+Entry in PyWeek #14  <http://www.pyweek.org/14/>
 URL: http://pyweek.org/e/bot_uprise
-Team: YOUR TEAM NAME (leave the "Team: bit")
-Members: YOUR TEAM MEMBERS (leave the "Members: bit")
-License: BSD see LICENSE.txt
+Team: Willyfrog
+Members: Willyfrog
+License: BSD (see LICENSE.txt)
 
 
 Running the Game
@@ -21,11 +21,10 @@ Othewise open a terminal / console and "cd" to the game directory and run:
 How to Play the Game
 --------------------
 
-One mad scientist must defeat his rogue AI with the garbage collector he has found
+A rogue AI has taken over anything resembling a weapon to exterminate
+anyone who tries to switch it off.
 
-Move the cursor around the screen with the mouse.
-
-Press the left mouse button to fire the ducks.
+use wasd/cursors to move ship, and qe/zx to rotate
 
 
 Development notes 
