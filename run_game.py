@@ -1,0 +1,3 @@
+import bot_uprise.__main__
+if __name__ == "__main__":
+    bot_uprise.__main__.main()

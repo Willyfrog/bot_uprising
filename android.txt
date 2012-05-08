@@ -1,0 +1,4 @@
+title=bot_uprise
+author=Willyfrog
+api=1
+orientation=landscape
