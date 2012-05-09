@@ -9,6 +9,7 @@ WIDTH = 800
 
 MOVESPEED = 0.3
 ANGSPEED = 6
+BGSPEED = 0.3
 
 class Player(pg.sprite.Sprite):
     def __init__(self):
@@ -39,7 +40,7 @@ class Pala(pg.sprite.Sprite):
         self.rect = self.img.get_rect()
         self.angle = 0
         self.angle2 = 0
-        self.distance = 400
+        self.distance = 30
         self.rect.centerx = self.player.rect.centerx + self.distance
         self.rect.centery = self.player.rect.centery
 
@@ -52,10 +53,10 @@ class Pala(pg.sprite.Sprite):
         
         self.rect.centerx = self.player.rect.centerx + math.cos(math.radians(self.angle)) * self.distance
         self.rect.centery = self.player.rect.centery - math.sin(math.radians(self.angle)) * self.distance
-        if (angle):
-            print('%d,%d - %f/%f: %f-%f\n' % (self.rect.centerx, self.rect.centery, self.angle, 
-                math.radians(self.angle), math.cos(math.radians(self.angle)) * self.distance, 
-                math.sin(math.radians(self.angle)) * self.distance))
+        #if (angle):
+        #    print('%d,%d - %f/%f: %f-%f\n' % (self.rect.centerx, self.rect.centery, self.angle, 
+        #        math.radians(self.angle), math.cos(math.radians(self.angle)) * self.distance, 
+        #        math.sin(math.radians(self.angle)) * self.distance))
 
 def angulo(x1,y1, x2, y2):
     return math.atan2(y2-y1, x1-x2)
@@ -96,11 +97,16 @@ def juego(screen):
     movex = 0
     angulo = 0
     points = 0  # puntuacion de las palas
+    xpos = 0
     player = Player()
     pala = Pala(player)
     bg = load_image(data.filepath('bg_placeholder.jpg'))
+    background = pg.Surface(screen.get_size())
+    #background.fill((0,0,0))
+    background.blit(bg, (xpos,0))
     while run:
         delta = clock.tick(30)
+        xpos = (xpos + BGSPEED*delta) % WIDTH
 
         for evs in pg.event.get():
             if evs.type == QUIT:
@@ -132,7 +138,10 @@ def juego(screen):
 
         player.update(movex, movey, delta)
         pala.update2(angulo, delta)
-        screen.blit(bg, (0,0))
+        background.blit(bg, (0,0), (xpos,0, WIDTH, HEIGHT))
+        background.blit(bg, (WIDTH - xpos,0), (0,0, xpos, HEIGHT))
+        #background.scroll(1,0)
+        screen.blit(background,(0,0))
         screen.blit(player.img, player.rect)
         screen.blit(pala.img, pala.rect)
         pg.display.flip()
