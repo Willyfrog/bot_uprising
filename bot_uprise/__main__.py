@@ -19,7 +19,8 @@ NUMLIFES = 5
 
 EVT_FIRE = 24
 EVT_REMOVE_BULLET = 25
-
+EVT_ENEMY_KILLED = 26
+EVT_PLAYER_KILLED = 27
 
 class Player(pg.sprite.Sprite):
     def __init__(self):
@@ -28,7 +29,11 @@ class Player(pg.sprite.Sprite):
         self.rect = self.img.get_rect()
         self.rect.centerx = 50
         self.rect.centery = WIDTH/2
-        self.collider = pg.rect.Rect
+        self.collider = pg.rect.Rect(
+            self.rect.centerx - 30, #left
+            self.rect.centery - 10, #top
+            60,
+            40)
 
     def update(self, movex, movey, delta=1):
         '''update ship.s movement '''
@@ -42,6 +47,8 @@ class Player(pg.sprite.Sprite):
         elif self.rect.bottom >= HEIGHT:
             self.rect.bottom = HEIGHT
         self.rect.centery += movey*MOVESPEED*delta
+        self.collider.centerx = self.rect.centerx
+        self.collider.bottom = self.rect.bottom -10
 
 class Pala(pg.sprite.Sprite):
     def __init__(self, player):
@@ -73,7 +80,7 @@ class Pala(pg.sprite.Sprite):
 
 
 class Bullet(pg.sprite.Sprite):
-    def __init__(self, angle, posx, posy):
+    def __init__(self, angle, posx, posy, origin):
         super(Bullet, self).__init__()
         self.image = load_image(data.filepath('bala.png'), True)
         self.rect = self.image.get_rect()
@@ -81,15 +88,43 @@ class Bullet(pg.sprite.Sprite):
         self.rect.centerx = posx
         self.rect.centery = posy
         self.collider = self.rect
+        self.active = False #we don't want enemies selfdestructing the moment they fire
+        self.origin = origin
 
-    def update(self, delta):
+    def update(self, delta, lista, player):
         #check for collisions
         self.rect.centerx += math.cos(math.radians(self.angle))*BULLETSPEED*delta
         self.rect.centery += math.sin(math.radians(self.angle))*BULLETSPEED*delta
         if (self.rect.centerx < 0 or self.rect.centerx > WIDTH or 
             self.rect.centery < 0 or self.rect.centery > HEIGHT):
             pg.event.post(pg.event.Event(EVT_REMOVE_BULLET, elto=self))
+        if not self.active:
+            if not self.collider.colliderect(self.origin.collider):
+                self.active = True # lock and loaded
+                self.origin = None #we don't want the bullet holding a reference
+        else:
+            if self.check_collisions(player, lista):
+                pg.event.post(pg.event.Event(EVT_REMOVE_BULLET, elto=self))
 
+    def deflect(self, angle):
+        '''
+        If the bullet hits the mechanical arm, it should be deflected. 
+        angle is the angle orthogonal to the surface of the arm.
+        angle + (angle - self.angle)
+        '''
+        self.angle = (angle * 2 - self.angle) % 360
+
+    def check_collisions(self, player, lista):
+        col = self.collider.colliderect(player.collider)
+        if not col:
+            for e in lista.sprites():
+                if self.collider.colliderect(e.collider):
+                    col = True
+                    pg.event.post(pg.event.Event(EVT_ENEMY_KILLED, baddie = e))
+                    break
+        else:
+            pg.event.post(pg.event.Event(EVT_PLAYER_KILLED))
+            return col
 
 class Enemy(pg.sprite.Sprite):
     """docstring for Enemy"""
@@ -106,7 +141,7 @@ class Enemy(pg.sprite.Sprite):
         self.rect.centerx -= MOVESPEED * delta
         self.carga -= delta
         if self.carga <= 0 and self.rect.centerx <= WIDTH:
-            pg.event.post(pg.event.Event(EVT_FIRE, x=self.rect.centerx, y=self.rect.centery))
+            pg.event.post(pg.event.Event(EVT_FIRE, x=self.rect.centerx, y=self.rect.centery, baddie= self))
             self.carga = RECARGA
 
 
@@ -183,7 +218,7 @@ def juego(screen):
                     angulo = -ANGSPEED
                 if evs.key == K_ESCAPE:
                     lifes = 0
-                    
+
             if evs.type == KEYUP:
                 if evs.key in (K_UP, K_w, K_DOWN, K_s):
                     movey = 0
@@ -197,11 +232,17 @@ def juego(screen):
                 #tx, ty = pg.mouse.get_pos()
                 angulo_tiro = math.degrees(math.atan2(player.rect.centery - evs.y,
                     player.rect.centerx - evs.x))
-                bullet_list.add(Bullet(angulo_tiro, evs.x, evs.y))
+                bullet_list.add(Bullet(angulo_tiro, evs.x, evs.y, evs.baddie))
             if evs.type == EVT_REMOVE_BULLET:
                 bullet_list.remove(evs.elto)
-                #delete(evs.elto)
-        #targetx, targety = pg.mouse.get_pos()
+            if evs.type == EVT_ENEMY_KILLED:
+                print ('enemy down')
+                evs.baddie.kill()
+                score += 10
+            if evs.type == EVT_PLAYER_KILLED:
+                #lifes -= 1
+                print ('player down')
+                
         
         spawn_timer -= delta
         if spawn_timer <= 0:
@@ -213,10 +254,13 @@ def juego(screen):
         pala.update2(angulo, delta)
         #for b in bullet_list:
         #    b.update(delta)
-        bullet_list.update(delta)
+        bullet_list.update(delta, enemy_list, player)
         #for e in enemy_list:
         #    e.update(delta)
         enemy_list.update(delta)
+
+        punt, punt_rect = escribe("Lifes: %s Score: %s" % (lifes, score), 10, 20)
+
         background.blit(bg, (0,0), (xpos,0, WIDTH, HEIGHT))
         background.blit(bg, (WIDTH - xpos,0), (0,0, xpos, HEIGHT))
         #background.scroll(1,0)
@@ -229,10 +273,13 @@ def juego(screen):
         #    screen.blit(e.img, e.rect)
         bullet_list.draw(screen)
         enemy_list.draw(screen)
+        screen.blit(punt, punt_rect)
+
 
         pg.display.flip()
-    #bullet_list.empty()
-    #enemy_list.empty()
+    bullet_list.empty()
+    enemy_list.empty()
+
 
 def main():
     """ your app starts here
