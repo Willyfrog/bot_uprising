@@ -9,13 +9,13 @@ HEIGHT = 600
 WIDTH = 800
 
 MOVESPEED = 0.3
-ANGSPEED = 6
+ANGSPEED = 12
 BGSPEED = 0.3
 BULLETSPEED = 0.5
 RECARGA = 200
 SPAWNRND = 5 # 1 in SPAWNRND posibilities of spawning a baddie
 SPAWNTIME = 400
-
+NUMLIFES = 5
 
 EVT_FIRE = 24
 EVT_REMOVE_BULLET = 25
@@ -28,6 +28,7 @@ class Player(pg.sprite.Sprite):
         self.rect = self.img.get_rect()
         self.rect.centerx = 50
         self.rect.centery = WIDTH/2
+        self.collider = pg.rect.Rect
 
     def update(self, movex, movey, delta=1):
         '''update ship.s movement '''
@@ -74,11 +75,12 @@ class Pala(pg.sprite.Sprite):
 class Bullet(pg.sprite.Sprite):
     def __init__(self, angle, posx, posy):
         super(Bullet, self).__init__()
-        self.img = load_image(data.filepath('bala.png'), True)
-        self.rect = self.img.get_rect()
+        self.image = load_image(data.filepath('bala.png'), True)
+        self.rect = self.image.get_rect()
         self.angle = angle
         self.rect.centerx = posx
         self.rect.centery = posy
+        self.collider = self.rect
 
     def update(self, delta):
         #check for collisions
@@ -93,11 +95,12 @@ class Enemy(pg.sprite.Sprite):
     """docstring for Enemy"""
     def __init__(self, y):
         super(Enemy, self).__init__()
-        self.img = load_image(data.filepath('protoenemy.png'), True)
-        self.rect = self.img.get_rect()
+        self.image = load_image(data.filepath('protoenemy.png'), True)
+        self.rect = self.image.get_rect()
         self.rect.centery = y
         self.rect.centerx = WIDTH + 10
         self.carga = RECARGA
+        self.collider = self.rect
 
     def update(self, delta):
         self.rect.centerx -= MOVESPEED * delta
@@ -140,7 +143,6 @@ def escribe(texto, posx, posy, color=(255, 255, 255)):
     return salida, salida_rect
 
 def juego(screen):
-    run = 1  # better than true for whiles
     clock = pg.time.Clock()
     movey = 0         # movimiento de la pala1
     movex = 0
@@ -149,14 +151,17 @@ def juego(screen):
     xpos = 0
     player = Player()
     pala = Pala(player)
-    bullet_list = []
-    enemy_list = []
+    bullet_list = pg.sprite.Group()
+    enemy_list = pg.sprite.Group()
     bg = load_image(data.filepath('bg.png'))
     background = pg.Surface(screen.get_size())
     #background.fill((0,0,0))
     background.blit(bg, (xpos,0))
     spawn_timer = SPAWNTIME
-    while run:
+    lifes = NUMLIFES
+    score = 0
+
+    while lifes:
         delta = clock.tick(30)
         xpos = (xpos + BGSPEED*delta) % WIDTH
 
@@ -177,7 +182,8 @@ def juego(screen):
                 if evs.key in (K_x, K_e):
                     angulo = -ANGSPEED
                 if evs.key == K_ESCAPE:
-                    run = 0
+                    lifes = 0
+                    
             if evs.type == KEYUP:
                 if evs.key in (K_UP, K_w, K_DOWN, K_s):
                     movey = 0
@@ -191,7 +197,7 @@ def juego(screen):
                 #tx, ty = pg.mouse.get_pos()
                 angulo_tiro = math.degrees(math.atan2(player.rect.centery - evs.y,
                     player.rect.centerx - evs.x))
-                bullet_list.append(Bullet(angulo_tiro, evs.x, evs.y))
+                bullet_list.add(Bullet(angulo_tiro, evs.x, evs.y))
             if evs.type == EVT_REMOVE_BULLET:
                 bullet_list.remove(evs.elto)
                 #delete(evs.elto)
@@ -201,26 +207,32 @@ def juego(screen):
         if spawn_timer <= 0:
             spawn_timer = SPAWNTIME
             if not random.randint(0,SPAWNRND):
-                enemy_list.append(Enemy(random.randint(0,HEIGHT)))
+                enemy_list.add(Enemy(random.randint(0,HEIGHT)))
 
         player.update(movex, movey, delta)
         pala.update2(angulo, delta)
-        for b in bullet_list:
-            b.update(delta)
-        for e in enemy_list:
-            e.update(delta)
+        #for b in bullet_list:
+        #    b.update(delta)
+        bullet_list.update(delta)
+        #for e in enemy_list:
+        #    e.update(delta)
+        enemy_list.update(delta)
         background.blit(bg, (0,0), (xpos,0, WIDTH, HEIGHT))
         background.blit(bg, (WIDTH - xpos,0), (0,0, xpos, HEIGHT))
         #background.scroll(1,0)
         screen.blit(background,(0,0))
         screen.blit(player.img, player.rect)
         screen.blit(pala.img, pala.rect)
-        for b in bullet_list:
-            screen.blit(b.img, b.rect)
-        for e in enemy_list:
-            screen.blit(e.img, e.rect)
+        #for b in bullet_list:
+        #    screen.blit(b.img, b.rect)
+        #for e in enemy_list:
+        #    screen.blit(e.img, e.rect)
+        bullet_list.draw(screen)
+        enemy_list.draw(screen)
 
         pg.display.flip()
+    #bullet_list.empty()
+    #enemy_list.empty()
 
 def main():
     """ your app starts here
