@@ -5,207 +5,9 @@ import sys
 import math
 import cmath
 import random
-
-HEIGHT = 600
-WIDTH = 800
-
-GLOBALSPEED = 1 
-
-MOVESPEED = 0.3 * GLOBALSPEED
-ANGSPEED = 12 * GLOBALSPEED
-BGSPEED = 0.3 * GLOBALSPEED
-BULLETSPEED = 0.5 * GLOBALSPEED
-RECARGA = 200 * GLOBALSPEED
-SPAWNRND = 5 * GLOBALSPEED # 1 in SPAWNRND posibilities of spawning a baddie
-SPAWNTIME = 400 * GLOBALSPEED
-NUMLIFES = 5
-
-EVT_FIRE = 24
-EVT_REMOVE_BULLET = 25
-EVT_ENEMY_KILLED = 26
-EVT_PLAYER_KILLED = 27
-
-class Player(pg.sprite.Sprite):
-    def __init__(self):
-        super(Player, self).__init__()
-        self.img = load_image(data.filepath('nave.png'), True)
-        self.rect = self.img.get_rect()
-        self.rect.centerx = 50
-        self.rect.centery = WIDTH/2
-        self.collider = pg.rect.Rect(
-            self.rect.centerx - 30, #left
-            self.rect.centery - 10, #top
-            60,
-            40)
-
-    def update(self, movex, movey, delta=1):
-        '''update ship.s movement '''
-        self.rect.centerx += movex*MOVESPEED*delta
-        if self.rect.left <= 0:
-            self.rect.left = 0
-        elif self.rect.right >= WIDTH:
-            self.rect.right = WIDTH
-        if self.rect.top <= 0:
-            self.rect.top = 0
-        elif self.rect.bottom >= HEIGHT:
-            self.rect.bottom = HEIGHT
-        self.rect.centery += movey*MOVESPEED*delta
-        self.collider.centerx = self.rect.centerx
-        self.collider.bottom = self.rect.bottom -10
-
-class Pala(pg.sprite.Sprite):
-    def __init__(self, player):
-        super(Pala, self).__init__()
-        self.player = player
-        #self.img = load_image(data.filepath('palashadow_placeholder.png'), True)
-        self.img = load_image(data.filepath('pala2.png'), True)
-        self.img_original = self.img.copy()
-        self.rect = self.img.get_rect()
-        self.angle = 0
-        self.angle2 = 0
-        self.distance = 0
-        self.rect.centerx = self.player.rect.centerx + self.distance
-        self.rect.centery = self.player.rect.centery
-        self.collider = pg.rect.Rect(-14,-36,40,72) #bullets have to be displaced to check against
-
-    def update2(self, angle, delta=1):
-        self.angle = (self.angle + angle)%360
-        re = self.rect.copy()
-        img = pg.transform.rotate(self.img_original, self.angle)
-        re.center = img.get_rect().center
-        self.img = img.subsurface(re).copy()
-        
-        self.rect.centerx = self.player.rect.centerx + math.cos(math.radians(self.angle)) * self.distance
-        self.rect.centery = self.player.rect.centery - math.sin(math.radians(self.angle)) * self.distance
-        #if (angle):
-        #    print('%d,%d - %f/%f: %f-%f\n' % (self.rect.centerx, self.rect.centery, self.angle, 
-        #        math.radians(self.angle), math.cos(math.radians(self.angle)) * self.distance, 
-        #        math.sin(math.radians(self.angle)) * self.distance))
-
-    def displace(self, x, y):
-        '''puts the center in the same space as the crane'''
-        an = math.radians(self.angle)
-        x1 = x - (self.player.rect.centerx + 64*math.cos(an))
-        y1 = y - (self.player.rect.centerx + 64*math.sin(an)) 
-        x2, y2 = rotate_point(x1, y1, self.angle)
-        #return (x1*math.cos(an) + y1*math.sin(an), (-x1*math.sin(an) + y1*math.cos(an)))
-        return x2, y2
-        #are signs right? :S
-
-    def collide_bullet(self, bullet):
-        (x, y) = self.displace(bullet.rect.centerx, bullet.rect.centery)
-        if self.collider.collidepoint(x,y):
-            print "colision en %s,%s (originalmente %s, %s) player %s, %s/%s" % (x, y, bullet.rect.centerx, 
-                bullet.rect.centery, self.player.rect.centerx, self.player.rect.centery, self.angle)
-        return self.collider.colliderect(pg.rect.Rect(x-8, y - 8, 16,16))
-
-
-class Bullet(pg.sprite.Sprite):
-    def __init__(self, angle, posx, posy, origin):
-        super(Bullet, self).__init__()
-        self.image = load_image(data.filepath('bala.png'), True)
-        self.rect = self.image.get_rect()
-        self.angle = angle
-        self.rect.centerx = posx
-        self.rect.centery = posy
-        self.collider = self.rect
-        self.active = False #we don't want enemies selfdestructing the moment they fire
-        self.origin = origin
-
-    def update(self, delta, lista, player, pala):
-        #check for collisions
-        self.rect.centerx += math.cos(math.radians(self.angle))*BULLETSPEED*delta
-        self.rect.centery += math.sin(math.radians(self.angle))*BULLETSPEED*delta
-        if (self.rect.centerx < 0 or self.rect.centerx > WIDTH or 
-            self.rect.centery < 0 or self.rect.centery > HEIGHT):
-            pg.event.post(pg.event.Event(EVT_REMOVE_BULLET, elto=self))
-        if not self.active:
-            if not self.collider.colliderect(self.origin.collider):
-                self.active = True # lock and loaded
-                self.origin = None #we don't want the bullet holding a reference
-        else:
-            if pala.collide_bullet(self):
-                self.deflect(pala.angle)
-                print "boink!"
-            elif self.check_collisions(player, lista):
-                pg.event.post(pg.event.Event(EVT_REMOVE_BULLET, elto=self))
-
-    def deflect(self, angle):
-        '''
-        If the bullet hits the mechanical arm, it should be deflected. 
-        angle is the angle orthogonal to the surface of the arm.
-        angle + (angle - self.angle)
-        '''
-        self.angle = (angle * 2 - self.angle) % 360
-
-    def check_collisions(self, player, lista):
-        col = self.collider.colliderect(player.collider)
-        if not col:
-            for e in lista.sprites():
-                if self.collider.colliderect(e.collider):
-                    col = True
-                    pg.event.post(pg.event.Event(EVT_ENEMY_KILLED, baddie = e))
-                    break
-        else:
-            pg.event.post(pg.event.Event(EVT_PLAYER_KILLED))
-            return False
-        return col
-
-class Enemy(pg.sprite.Sprite):
-    """docstring for Enemy"""
-    def __init__(self, y):
-        super(Enemy, self).__init__()
-        self.image = load_image(data.filepath('protoenemy.png'), True)
-        self.rect = self.image.get_rect()
-        self.rect.centery = y
-        self.rect.centerx = WIDTH + 10
-        self.carga = RECARGA
-        self.collider = self.rect
-
-    def update(self, delta):
-        self.rect.centerx -= MOVESPEED * delta
-        self.carga -= delta
-        if self.carga <= 0 and self.rect.centerx <= WIDTH:
-            pg.event.post(pg.event.Event(EVT_FIRE, x=self.rect.centerx, y=self.rect.centery, baddie= self))
-            self.carga = RECARGA
-
-
-def angulo(x1,y1, x2, y2):
-    return math.atan2(y2-y1, x1-x2)
-
-def rotate_point(x,y, angle):
-    cangle = cmath.exp(math.radians(-angle)*1j)
-    res = cangle * complex(x, y)
-    return res.real, res.imag 
-
-def load_image(filename, transparent=False):
-        try:
-            image = pg.image.load(filename)
-        except pg.error, message:
-                raise SystemExit(message)
-        image = image.convert()
-        if transparent:
-                color = image.get_at((0, 0))
-                image.set_colorkey(color, RLEACCEL)
-        #print "cargada"
-        return image
-
-def rot_center(image, angle):
-    """rotate an image while keeping its center and size"""
-    orig_rect = image.get_rect()
-    rot_image = pygame.transform.rotate(image, angle)
-    rot_rect = orig_rect.copy()
-    rot_rect.center = rot_image.get_rect().center
-    rot_image = rot_image.subsurface(rot_rect).copy()
-    return rot_image
-
-def escribe(texto, posx, posy, color=(255, 255, 255)):
-    fuente = pg.font.Font(data.filepath('DroidSans.ttf'), 25)
-    salida = pg.font.Font.render(fuente, texto, 1, color)
-    salida_rect = salida.get_rect()
-    salida_rect.centerx = posx
-    salida_rect.centery = posy
-    return salida, salida_rect
+from common import *
+from enemy import *
+from player import *
 
 def juego(screen):
     clock = pg.time.Clock()
@@ -216,6 +18,7 @@ def juego(screen):
     xpos = 0
     player = Player()
     pala = Pala(player)
+    shadow = Pala(player, 'shadow.png')
     bullet_list = pg.sprite.Group()
     enemy_list = pg.sprite.Group()
     bg = load_image(data.filepath('bg.png'))
@@ -225,6 +28,11 @@ def juego(screen):
     spawn_timer = SPAWNTIME
     lifes = NUMLIFES
     score = 0
+
+    explosion_snd = load_sound(data.filepath('explosion.wav'))
+    hit_snd = load_sound(data.filepath('hit.wav'))
+    laser_snd = load_sound(data.filepath('laser.wav'))
+    reflect_snd = load_sound(data.filepath('reflect.wav'))
 
     while lifes:
         delta = clock.tick(30)
@@ -265,22 +73,27 @@ def juego(screen):
                 angulo_tiro = math.degrees(math.atan2(player.rect.centery - evs.y,
                     player.rect.centerx - evs.x))
                 bullet_list.add(Bullet(angulo_tiro, evs.x, evs.y, evs.baddie))
+                laser_snd.play()
             if evs.type == EVT_REMOVE_BULLET:
                 bullet_list.remove(evs.elto)
             if evs.type == EVT_ENEMY_KILLED:
-                #print ('enemy down')
+                print ('enemy down')
+                explosion_snd.play()
                 evs.baddie.kill()
                 score += 10
             if evs.type == EVT_PLAYER_KILLED:
-                #lifes -= 1 # TODO: reactivate
-                #print ('player down')
-                pass
+                lifes -= 1 # TODO: reactivate
+                hit_snd.play()
+                print ('player down')
+            if evs.type == EVT_REFLECT_BULLET:
+                reflect_snd.play()
+                
 
             if evs.type == MOUSEBUTTONDOWN:
                 tx, ty = pg.mouse.get_pos()
                 dx, dy = pala.displace(tx, ty)
-                print "pulsaste en %s,%s (originalmente %s, %s) player %s, %s/%s" % (dx, dy, tx, 
-                ty, player.rect.centerx, player.rect.centery, pala.angle)
+                #print "pulsaste en %s,%s (originalmente %s, %s) player %s, %s/%s" % (dx, dy, tx, 
+                #ty, player.rect.centerx, player.rect.centery, pala.angle)
 
                 
         
@@ -292,6 +105,7 @@ def juego(screen):
 
         player.update(movex, movey, delta)
         pala.update2(angulo, delta)
+        shadow.update2(angulo, delta)
         #for b in bullet_list:
         #    b.update(delta)
         bullet_list.update(delta, enemy_list, player, pala)
@@ -306,20 +120,66 @@ def juego(screen):
         #background.scroll(1,0)
         screen.blit(background,(0,0))
         screen.blit(player.img, player.rect)
-        screen.blit(pala.img, pala.rect)
+        
         #for b in bullet_list:
         #    screen.blit(b.img, b.rect)
         #for e in enemy_list:
         #    screen.blit(e.img, e.rect)
         bullet_list.draw(screen)
         enemy_list.draw(screen)
+        #subshadow = shadow.img.subsurface(pg.rect.Rect(0,0,WIDTH,HEIGHT))
+        screen.blit(shadow.img, shadow.rect)
+        screen.blit(pala.img, pala.rect)
         screen.blit(punt, punt_rect)
-
 
         pg.display.flip()
     bullet_list.empty()
     enemy_list.empty()
+    return score
 
+
+def title(screen):
+    '''
+    Title screen
+    '''
+    bg = load_image(data.filepath('inicio.png'))
+    blinky = load_image(data.filepath('title.png'))
+    title = pg.Surface(blinky.get_size())
+    clock = pg.time.Clock()
+    itson = False
+    fin = 1
+    if itson:
+        count = random.choice([1000,5000,15000, 20000])
+    else:
+        count = random.choice([500, 2000])
+    screen.blit(bg, (0,0))
+    title.blit(blinky,(0,0))
+    while fin:
+        delta = clock.tick(30)
+        count -= delta
+
+        for evs in pg.event.get():
+            if evs.type == QUIT:
+                sys.exit()
+            if evs.type == KEYDOWN:
+                if evs.key in (K_KP_ENTER, K_RETURN):
+                    fin = 0
+                if evs.key == K_ESCAPE:
+                    sys.exit()
+
+        
+        if count<=0:
+            itson = not itson
+            if itson:
+                count = random.choice([100,500,1500, 2000])
+            else:
+                count = random.choice([50, 200])
+        if itson:
+            title.blit(blinky,(0,0))
+        else:
+            title.fill((0,0,0))
+        screen.blit(title, (330, 160))
+        pg.display.flip()
 
 def main():
     """ your app starts here
@@ -328,6 +188,7 @@ def main():
     pg.init()
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     pg.display.set_caption("Bot uprise")
-    
-    juego(screen)
+    while 1:
+        title(screen)
+        score = juego(screen)
     return 0
