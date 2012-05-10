@@ -83,10 +83,10 @@ class Pala(pg.sprite.Sprite):
 
     def displace(self, x, y):
         '''puts the center in the same space as the crane'''
-        an = math.radians(-self.angle)
+        an = math.radians(self.angle)
         x1 = x - (self.player.rect.centerx + 64*math.cos(an))
-        y1 = y - (self.player.rect.centerx + 64*math.sin(an)) 
-        return (x1*math.cos(an) - y1*math.sin(an), (x1*math.sin(an) + y1*math.cos(an)))
+        y1 = y - (self.player.rect.centerx - 64*math.sin(an)) 
+        return (x1*math.cos(an) + y1*math.sin(an), (-x1*math.sin(an) + y1*math.cos(an)))
         #are signs right? :S
 
     def collide_bullet(self, bullet):
