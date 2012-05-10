@@ -3,6 +3,7 @@ import pygame as pg
 from pygame.locals import *
 import sys
 import math
+import cmath
 import random
 
 HEIGHT = 600
@@ -85,8 +86,10 @@ class Pala(pg.sprite.Sprite):
         '''puts the center in the same space as the crane'''
         an = math.radians(self.angle)
         x1 = x - (self.player.rect.centerx + 64*math.cos(an))
-        y1 = y - (self.player.rect.centerx - 64*math.sin(an)) 
-        return (x1*math.cos(an) + y1*math.sin(an), (-x1*math.sin(an) + y1*math.cos(an)))
+        y1 = y - (self.player.rect.centerx + 64*math.sin(an)) 
+        x2, y2 = rotate_point(x1, y1, self.angle)
+        #return (x1*math.cos(an) + y1*math.sin(an), (-x1*math.sin(an) + y1*math.cos(an)))
+        return x2, y2
         #are signs right? :S
 
     def collide_bullet(self, bullet):
@@ -169,6 +172,11 @@ class Enemy(pg.sprite.Sprite):
 
 def angulo(x1,y1, x2, y2):
     return math.atan2(y2-y1, x1-x2)
+
+def rotate_point(x,y, angle):
+    cangle = cmath.exp(math.radians(-angle)*1j)
+    res = cangle * complex(x, y)
+    return res.real, res.imag 
 
 def load_image(filename, transparent=False):
         try:
