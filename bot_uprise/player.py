@@ -7,7 +7,10 @@ import math
 class Player(pg.sprite.Sprite):
     def __init__(self):
         super(Player, self).__init__()
-        self.img = load_image(data.filepath('nave.png'), True)
+        self.img_original = load_image(data.filepath('nave.png'), True)
+        self.img = self.img_original
+        self.no_img = pg.Surface(self.img.get_size())
+        self.no_img.fill((0,0,0))
         self.rect = self.img.get_rect()
         self.rect.centerx = 50
         self.rect.centery = WIDTH/2
@@ -16,9 +19,21 @@ class Player(pg.sprite.Sprite):
             self.rect.centery - 10, #top
             60,
             40)
+        self.invulnerable = 0
+        self.visible = True
 
     def update(self, movex, movey, delta=1):
         '''update ship.s movement '''
+        if self.invulnerable > 0:
+            self.invulnerable -= delta
+            self.visible = not self.visible
+            if self.invulnerable <= 0:
+                self.invulnerable = 0
+                self.visible = True
+        if self.visible:
+            self.img = self.img_original
+        else:
+            self.img = self.no_img
         self.rect.centerx += movex*MOVESPEED*delta
         if self.rect.left <= 0:
             self.rect.left = 0
@@ -45,7 +60,7 @@ class Pala(pg.sprite.Sprite):
         self.distance = 0
         self.rect.centerx = self.player.rect.centerx + self.distance
         self.rect.centery = self.player.rect.centery
-        self.collider = pg.rect.Rect(-14,-36,40,72) #bullets have to be displaced to check against
+        self.collider = pg.rect.Rect(-4,-30,20,60) #bullets have to be displaced to check against
 
     def update2(self, angle, delta=1):
         self.angle = (self.angle + angle)%360
@@ -73,11 +88,11 @@ class Pala(pg.sprite.Sprite):
         #are signs right? :S
 
     def collide_bullet(self, bullet):
-        (x, y) = self.displace(bullet.rect.centerx, bullet.rect.centery)
-        # if self.collider.collidepoint(x,y):
-            #print "colision en %s,%s (originalmente %s, %s) player %s, %s/%s" % (x, y, bullet.rect.centerx, 
-            #    bullet.rect.centery, self.player.rect.centerx, self.player.rect.centery, self.angle)
-        return self.collider.colliderect(pg.rect.Rect(x-8, y - 8, 16,16))
+        if ((bullet.angle + 90) % 360 <= self.angle and (bullet.angle - 90) % 360 >= self.angle):
+            (x, y) = self.displace(bullet.rect.centerx, bullet.rect.centery)
+            return self.collider.colliderect(pg.rect.Rect(x-8, y - 8, 16,16))
+        else: #don't want it bouncing inside the rect
+            return False
 
 
 class Shadow(pg.sprite.Sprite):

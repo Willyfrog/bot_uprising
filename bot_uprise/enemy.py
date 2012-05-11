@@ -31,7 +31,6 @@ class Bullet(pg.sprite.Sprite):
             if pala.collide_bullet(self):
                 self.deflect(pala.angle)
                 pg.event.post(pg.event.Event(EVT_REFLECT_BULLET))
-                print "boink!"
             elif self.check_collisions(player, lista):
                 pg.event.post(pg.event.Event(EVT_REMOVE_BULLET, elto=self))
 
@@ -44,7 +43,9 @@ class Bullet(pg.sprite.Sprite):
         self.angle = (angle * 2 - self.angle) % 360
 
     def check_collisions(self, player, lista):
-        col = self.collider.colliderect(player.collider)
+        col = False
+        if player.invulnerable <= 0:
+            col = self.collider.colliderect(player.collider)
         if not col:
             for e in lista.sprites():
                 if self.collider.colliderect(e.collider):
@@ -53,7 +54,7 @@ class Bullet(pg.sprite.Sprite):
                     break
         else:
             pg.event.post(pg.event.Event(EVT_PLAYER_KILLED))
-            return False
+
         return col
 
 class Enemy(pg.sprite.Sprite):

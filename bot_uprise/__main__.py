@@ -9,7 +9,7 @@ from common import *
 from enemy import *
 from player import *
 
-def juego(screen):
+def juego(screen, shadow_visible):
     clock = pg.time.Clock()
     movey = 0         # movimiento de la pala1
     movex = 0
@@ -18,7 +18,10 @@ def juego(screen):
     xpos = 0
     player = Player()
     pala = Pala(player)
-    shadow = Pala(player, 'shadow.png')
+    if shadow_visible:
+        shadow = Pala(player, 'shadow.png')
+    else:
+        shadow = None
     bullet_list = pg.sprite.Group()
     enemy_list = pg.sprite.Group()
     bg = load_image(data.filepath('bg.png'))
@@ -84,6 +87,7 @@ def juego(screen):
             if evs.type == EVT_PLAYER_KILLED:
                 lifes -= 1 # TODO: reactivate
                 hit_snd.play()
+                player.invulnerable = INVULNERABLE_TIME
                 print ('player down')
             if evs.type == EVT_REFLECT_BULLET:
                 reflect_snd.play()
@@ -105,7 +109,8 @@ def juego(screen):
 
         player.update(movex, movey, delta)
         pala.update2(angulo, delta)
-        shadow.update2(angulo, delta)
+        if shadow_visible:
+            shadow.update2(angulo, delta)
         #for b in bullet_list:
         #    b.update(delta)
         bullet_list.update(delta, enemy_list, player, pala)
@@ -113,7 +118,7 @@ def juego(screen):
         #    e.update(delta)
         enemy_list.update(delta)
 
-        punt, punt_rect = escribe("Lifes: %s Score: %s" % (lifes, score), 10, 20)
+        punt, punt_rect = escribe("Lifes: %s Score: %s" % (lifes, score), 180, 20)
 
         background.blit(bg, (0,0), (xpos,0, WIDTH, HEIGHT))
         background.blit(bg, (WIDTH - xpos,0), (0,0, xpos, HEIGHT))
@@ -128,7 +133,8 @@ def juego(screen):
         bullet_list.draw(screen)
         enemy_list.draw(screen)
         #subshadow = shadow.img.subsurface(pg.rect.Rect(0,0,WIDTH,HEIGHT))
-        screen.blit(shadow.img, shadow.rect)
+        if (shadow_visible):
+            screen.blit(shadow.img, shadow.rect)
         screen.blit(pala.img, pala.rect)
         screen.blit(punt, punt_rect)
 
@@ -138,7 +144,7 @@ def juego(screen):
     return score
 
 
-def title(screen):
+def title(screen, shadow_visible):
     '''
     Title screen
     '''
@@ -148,14 +154,14 @@ def title(screen):
     clock = pg.time.Clock()
     itson = False
     fin = 1
+    shadow = shadow_visible
     if itson:
         count = random.choice([1000,5000,15000, 20000])
     else:
         count = random.choice([500, 2000])
-    screen.blit(bg, (0,0))
-    title.blit(blinky,(0,0))
     while fin:
-        delta = clock.tick(30)
+        screen.blit(bg, (0,0))
+        delta = clock.tick(40)
         count -= delta
 
         for evs in pg.event.get():
@@ -166,8 +172,13 @@ def title(screen):
                     fin = 0
                 if evs.key == K_ESCAPE:
                     sys.exit()
+                if evs.key == K_s:
+                    shadow = not shadow
+        if shadow:
+            message = "(S)hadow: ON "
+        else:
+            message = "(S)hadow: OFF"
 
-        
         if count<=0:
             itson = not itson
             if itson:
@@ -179,7 +190,44 @@ def title(screen):
         else:
             title.fill((0,0,0))
         screen.blit(title, (330, 160))
+        opt, opt_s = escribe(message, 690, 20)
+        screen.blit(opt, opt_s)
         pg.display.flip()
+    return shadow
+
+def ending(screen, shadow_visible=True, score=0):
+    '''
+    ending screen
+    '''
+    bg = pg.Surface((WIDTH,HEIGHT))
+    bg.fill((0,0,0))
+    clock = pg.time.Clock()
+    fin = 1
+    shadow = shadow_visible
+
+    while fin:
+        screen.blit(bg, (0,0))
+        delta = clock.tick(30)
+
+        for evs in pg.event.get():
+            if evs.type == QUIT:
+                sys.exit()
+            if evs.type == KEYDOWN:
+                if evs.key in (K_KP_ENTER, K_RETURN, K_ESCAPE):
+                    fin = 0
+                if evs.key == K_s:
+                    shadow = not shadow
+        if shadow:
+            message = "(S)hadow: ON "
+        else:
+            message = "(S)hadow: OFF"
+
+        opt, opt_s = escribe(message, 690, 20)
+        sco, sco_s = escribe("SCORE: %s" % score, WIDTH/2, HEIGHT/2)
+        screen.blit(opt, opt_s)
+        screen.blit(sco, sco_s)
+        pg.display.flip()
+    return shadow
 
 def main():
     """ your app starts here
@@ -188,7 +236,9 @@ def main():
     pg.init()
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     pg.display.set_caption("Bot uprise")
+    shadow = True
     while 1:
-        title(screen)
-        score = juego(screen)
+        shadow = title(screen, shadow)
+        score  = juego(screen, shadow)
+        shadow = ending(screen, shadow, score)
     return 0
